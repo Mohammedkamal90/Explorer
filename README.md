@@ -57,9 +57,11 @@ Values below are placeholders showing the generated layout; the program does not
 | 1 | <RPC result or Unknown> | <RPC result or Unknown> | <address> | <explorer result> | <explorer result> | <network explorer> | <creation time or Unknown> |
 
 ## Associated Pairs
-| DEX | Pair Address | token0 | token1 | Block Number | Transaction Hash |
-| --- | ------------ | ------ | ------ | ------------ | ---------------- |
-| <DEX> V2 | <pair> | <token0> | <token1> | <block> | <transaction> |
+| DEX | Pair Address | token0 | token0 Balance | token1 | token1 Balance | Block Number | Transaction Hash |
+| --- | ------------ | ------ | ------------- | ------ | ------------- | ------------ | ---------------- |
+| <DEX> V2 | <pair> | <token0> | <balance at snapshot block> | <token1> | <balance at snapshot block> | <block> | <transaction> |
+
+The report includes a pair and its tokens only when both underlying token balances are known and greater than zero at the recorded balance snapshot block. Balances are read with each token's `balanceOf(pair)` and formatted with its `decimals()`. They are token quantities, not USD values or the explorer's full token-holdings aggregation. If a token's `decimals()` call fails, a nonzero raw balance is still included and labeled as raw units.
 ```
 
 ## Network/factory sources
