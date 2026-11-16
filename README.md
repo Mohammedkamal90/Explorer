@@ -61,7 +61,9 @@ Values below are placeholders showing the generated layout; the program does not
 | --- | ------------ | ------ | ------------- | ------ | ------------- | ------------ | ---------------- |
 | <DEX> V2 | <pair> | <token0> | <balance at snapshot block> | <token1> | <balance at snapshot block> | <block> | <transaction> |
 
-The report includes a pair and its tokens only when both underlying token balances are known and greater than zero at the recorded balance snapshot block. Balances are read with each token's `balanceOf(pair)` and formatted with its `decimals()`. They are token quantities, not USD values or the explorer's full token-holdings aggregation. If a token's `decimals()` call fails, a nonzero raw balance is still included and labeled as raw units.
+The report includes a pair and its tokens only when both underlying token balances are known and greater than zero at the recorded balance snapshot block. On BSC, it also excludes a pair if its WBNB, BEP-20 ETH, or listed Wormhole WETH balance is below 10 tokens, or its USDT, BUSD, or USDC balance is below 10,000 tokens (nominal $1 each). This filter uses only on-chain `balanceOf` and token `decimals()` calls; it does not use price feeds. Unknown balances or decimals do not trigger the dead-pair exclusion. Other networks do not apply this BSC-address-specific filter. If `decimals()` fails, a nonzero raw balance is still included and labeled as raw units.
+
+In the final report, associated pairs are grouped under WBNB, USDT, BUSD, USDC, ETH, and Wormhole WETH when either token matches that BSC token address. Pairs without one of these tokens appear under `Other pairs`. A pair containing two listed tokens appears under both matching groups.
 ```
 
 ## Network/factory sources

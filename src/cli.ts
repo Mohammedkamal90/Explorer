@@ -38,25 +38,29 @@ async function main(){
   }catch(e){factory.deploymentBlock='Unknown';const msg=`${factory.dex} V2 scan failed: ${String(e)}`;console.error(msg);errors.push(msg);}}
   pairs=[...new Map(pairs.map(p=>[`${selected.chainId}:${p.pair.toLowerCase()}`,p])).values()];
   const discoveredPairCount=pairs.length;const date=new Date();const now=Math.floor(date.getTime()/1000);
-  let pairsChecked=0;const includedPairs:PairWithBalances[]=[];let tokens:TokenRow[]=[];
+  let pairsChecked=0;let nonzeroPairs=0;let deadPairsExcluded=0;const includedPairs:PairWithBalances[]=[];let tokens:TokenRow[]=[];
   const slug=key;const path=join(REPORT_DIR,`token-discovery-${slug}-${date.toISOString().slice(0,10)}.md`);await mkdir(REPORT_DIR,{recursive:true});
   const tokenAddresses=()=>dedupeTokens(includedPairs,selected.chainId);
   const unknownToken=(address:string):TokenRow=>({address,name:'Unknown',symbol:'Unknown',decimals:'Unknown',totalSupply:'Unknown',verification:'Unknown',proxy:'Unknown',deploymentTimestamp:null,ageDays:null});
   const currentTokens=()=>tokenAddresses().map(address=>tokens.find(t=>t.address.toLowerCase()===address.toLowerCase())??unknownToken(address));
-  const writeCurrentReport=()=>writeFile(path,renderReport({network:selected,fromBlock,toBlock,timestamp:date,pairs:includedPairs,discoveredPairCount,pairsChecked,balanceBlock:latestBlock,tokens:currentTokens(),errors}), 'utf8');
-  await writeCurrentReport();console.log(`Pair scan complete: ${discoveredPairCount} pairs. Reading token balances at block ${latestBlock}; only pairs with both balances above zero will be reported.`);
+  const writeCurrentReport=()=>writeFile(path,renderReport({network:selected,fromBlock,toBlock,timestamp:date,pairs:includedPairs,discoveredPairCount,pairsChecked,nonzeroPairs,deadPairsExcluded,balanceBlock:latestBlock,tokens:currentTokens(),errors}), 'utf8');
+  await writeCurrentReport();console.log(`Pair scan complete: ${discoveredPairCount} pairs. Reading token balances at block ${latestBlock}; pairs need both nonzero balances, and listed quote-token balances below $1000 are excluded.`);
   for(let i=0;i<pairs.length;i++){
     const pair=pairs[i]!;
     try{
-      const withBalances=await getPairBalances(provider,pair,latestBlock);
-      if(withBalances.hasBothBalances)includedPairs.push(withBalances);
+      const withBalances=await getPairBalances(provider,pair,latestBlock,selected.chainId);
+      if(withBalances.hasBothBalances){
+        nonzeroPairs++;
+        if(withBalances.excludedAsDead)deadPairsExcluded++;
+        else includedPairs.push(withBalances);
+      }
     }catch(e){errors.push(`Pair ${pair.pair} balance lookup: ${String(e)}`);}
     pairsChecked++;
-    if((i+1)%10===0||i+1===pairs.length){await writeCurrentReport();console.log(`Pair balances ${i+1}/${discoveredPairCount}; ${includedPairs.length} pairs have both nonzero balances; report updated`);}
+    if((i+1)%10===0||i+1===pairs.length){await writeCurrentReport();console.log(`Pair balances ${i+1}/${discoveredPairCount}; ${includedPairs.length} reportable pairs; ${deadPairsExcluded} excluded as dead; report updated`);}
   }
   const includedTokenAddresses=tokenAddresses();
   tokens=includedTokenAddresses.map(unknownToken);
-  await writeCurrentReport();console.log(`Balance filter complete: ${includedPairs.length}/${discoveredPairCount} pairs included; ${includedTokenAddresses.length} unique tokens. Report saved to ${path}`);
+  await writeCurrentReport();console.log(`Balance filter complete: ${includedPairs.length}/${discoveredPairCount} pairs included; ${deadPairsExcluded} excluded as dead; ${includedTokenAddresses.length} unique tokens. Report saved to ${path}`);
   for(let i=0;i<includedTokenAddresses.length;i++){const address=includedTokenAddresses[i]!;try{
     console.log(`Token metadata ${i+1}/${includedTokenAddresses.length}: ${address}`);
     const metadata=await getTokenMetadata(provider,address);tokens[i]={...metadata,verification:'Unknown',proxy:'Unknown',deploymentTimestamp:null,ageDays:null};console.log(`Contract verification/deployment lookup ${i+1}/${includedTokenAddresses.length}`);
